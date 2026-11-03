@@ -65,6 +65,8 @@ fun LiveWallScreen(
     startId: String?,
     cycleSeconds: Int,
     status: PollStatus,
+    /** Remote hints; off in the screensaver, where any button simply ends it. */
+    showHints: Boolean = true,
 ) {
     val now = rememberNow()
     val focus = remember { FocusRequester() }
@@ -150,7 +152,7 @@ fun LiveWallScreen(
                     paused || cycleSeconds == 0 -> "◀ ▶ switch channel  ·  OK resume cycling  ·  Back to exit"
                     else -> "◀ ▶ switch channel  ·  OK pause  ·  Back to exit"
                 }
-                Text(hint, color = Pulse.faint, fontSize = 12.sp)
+                if (showHints) Text(hint, color = Pulse.faint, fontSize = 12.sp)
             }
         }
     }

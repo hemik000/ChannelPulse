@@ -93,7 +93,7 @@ private fun DreamWall(container: AppContainer) {
         // Fills the edges uncovered when burn-in protection shifts the content.
         modifier = Modifier.background(Pulse.bg),
     ) {
-        LiveWallScreen(channels = channels, startId = null, cycleSeconds = settings.wallCycleSeconds, status = status)
+        LiveWallScreen(channels = channels, startId = null, cycleSeconds = settings.wallCycleSeconds, status = status, showHints = false)
     }
 }
 

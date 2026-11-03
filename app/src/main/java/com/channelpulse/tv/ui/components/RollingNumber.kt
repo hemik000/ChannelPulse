@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,14 +21,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import com.channelpulse.tv.data.Fmt
-import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.min
+import kotlinx.coroutines.delay
 
 /**
  * A number whose digits roll like an odometer when it changes.
@@ -101,5 +104,37 @@ fun RollingNumber(
                 }
             }
         }
+    }
+}
+
+/**
+ * [RollingNumber] that shrinks below [maxFontSize] when the number wouldn't fit the available width,
+ * so long counts like 64,38,28,652 are never cut off.
+ */
+@Composable
+fun FitRollingNumber(
+    value: Long,
+    maxFontSize: TextUnit,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight = FontWeight.Bold,
+    smoothMs: Int = 0,
+    roundedSigFigs: Int? = null,
+    prefix: String = "",
+) {
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier) {
+        val chars = (prefix + Fmt.full(value)).length.coerceAtLeast(1)
+        // Tabular bold digits are about 0.6 em wide.
+        val fit = (maxWidth.value / (chars * 0.6f * fontScale)).sp
+        RollingNumber(
+            value = value,
+            fontSize = if (fit < maxFontSize) fit else maxFontSize,
+            color = color,
+            fontWeight = fontWeight,
+            smoothMs = smoothMs,
+            roundedSigFigs = roundedSigFigs,
+            prefix = prefix,
+        )
     }
 }

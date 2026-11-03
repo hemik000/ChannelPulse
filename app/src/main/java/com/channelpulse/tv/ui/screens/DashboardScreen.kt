@@ -47,6 +47,7 @@ import com.channelpulse.tv.ui.Screen
 import com.channelpulse.tv.ui.components.Avatar
 import com.channelpulse.tv.ui.components.BarChart
 import com.channelpulse.tv.ui.components.DeltaText
+import com.channelpulse.tv.ui.components.FitRollingNumber
 import com.channelpulse.tv.ui.components.PillButton
 import com.channelpulse.tv.ui.components.QrCode
 import com.channelpulse.tv.ui.components.RollingNumber
@@ -228,7 +229,7 @@ private fun ChannelCard(channel: ChannelUi, now: Long, onClick: () -> Unit, modi
             when {
                 st == null -> Text("—", fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 st.subscribersHidden -> Text("Hidden", fontSize = 26.sp, color = Pulse.dim)
-                else -> RollingNumber(st.subscribers, fontSize = 32.sp, roundedSigFigs = 3)
+                else -> FitRollingNumber(st.subscribers, maxFontSize = 32.sp, roundedSigFigs = 3)
             }
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.Bottom) {

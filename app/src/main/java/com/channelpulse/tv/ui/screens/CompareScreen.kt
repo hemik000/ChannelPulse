@@ -41,8 +41,8 @@ import com.channelpulse.tv.ui.Metrics
 import com.channelpulse.tv.ui.Pulse
 import com.channelpulse.tv.ui.Screen
 import com.channelpulse.tv.ui.components.Avatar
+import com.channelpulse.tv.ui.components.FitRollingNumber
 import com.channelpulse.tv.ui.components.PillButton
-import com.channelpulse.tv.ui.components.RollingNumber
 import com.channelpulse.tv.ui.components.rememberNow
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -113,7 +113,7 @@ fun CompareScreen(a: ChannelUi, b: ChannelUi, onChange: () -> Unit, onSwap: () -
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(start = Screen.sidePadding(), end = Screen.sidePadding(), top = 26.dp, bottom = 32.dp)
+            .padding(start = Screen.sidePadding(), end = Screen.sidePadding(), top = 20.dp, bottom = 16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Head to head", fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -121,7 +121,7 @@ fun CompareScreen(a: ChannelUi, b: ChannelUi, onChange: () -> Unit, onSwap: () -
             Spacer(Modifier.width(10.dp))
             PillButton("Swap sides", onSwap)
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(12.dp))
 
         // Names
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -129,15 +129,15 @@ fun CompareScreen(a: ChannelUi, b: ChannelUi, onChange: () -> Unit, onSwap: () -
             Text("VS", color = Pulse.accent, fontSize = 22.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 28.dp))
             Side(b, Modifier.weight(1f), alignEnd = false)
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
         GapBanner(a, b, now)
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
 
         Column(
             Modifier
                 .fillMaxWidth()
                 .background(Pulse.surface, RoundedCornerShape(16.dp))
-                .padding(horizontal = 24.dp, vertical = 10.dp)
+                .padding(horizontal = 24.dp, vertical = 4.dp)
         ) {
             val sa = a.stats
             val sb = b.stats
@@ -148,24 +148,9 @@ fun CompareScreen(a: ChannelUi, b: ChannelUi, onChange: () -> Unit, onSwap: () -
                 rounded = true,
             )
             MetricRow("Total views", sa?.views, sb?.views)
-            MetricRow(
-                "Upload views · last hour",
-                Metrics.uploadViews(a, now, Metrics.HOUR)?.change,
-                Metrics.uploadViews(b, now, Metrics.HOUR)?.change,
-                signed = true,
-            )
-            MetricRow(
-                "Views · last 24h",
-                Metrics.views(a, now, Metrics.DAY)?.change,
-                Metrics.views(b, now, Metrics.DAY)?.change,
-                signed = true,
-            )
-            MetricRow(
-                "Subscribers · last 24h",
-                Metrics.subs(a, now, Metrics.DAY)?.change,
-                Metrics.subs(b, now, Metrics.DAY)?.change,
-                signed = true,
-            )
+            ChangeRow("Upload views", Metrics.HOUR, Metrics.uploadViews(a, now, Metrics.HOUR), Metrics.uploadViews(b, now, Metrics.HOUR))
+            ChangeRow("Views", Metrics.DAY, Metrics.views(a, now, Metrics.DAY), Metrics.views(b, now, Metrics.DAY))
+            ChangeRow("Subscribers", Metrics.DAY, Metrics.subs(a, now, Metrics.DAY), Metrics.subs(b, now, Metrics.DAY))
             MetricRow("Videos", sa?.videoCount, sb?.videoCount, last = true)
         }
         Spacer(Modifier.height(10.dp))
@@ -180,7 +165,7 @@ fun CompareScreen(a: ChannelUi, b: ChannelUi, onChange: () -> Unit, onSwap: () -
 private fun Side(c: ChannelUi, modifier: Modifier, alignEnd: Boolean) {
     Row(modifier, horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
         if (!alignEnd) {
-            Avatar(c.thumb, 56.dp)
+            Avatar(c.thumb, 48.dp)
             Spacer(Modifier.width(14.dp))
         }
         Column(horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start) {
@@ -189,7 +174,7 @@ private fun Side(c: ChannelUi, modifier: Modifier, alignEnd: Boolean) {
         }
         if (alignEnd) {
             Spacer(Modifier.width(14.dp))
-            Avatar(c.thumb, 56.dp)
+            Avatar(c.thumb, 48.dp)
         }
     }
 }
@@ -228,12 +213,21 @@ private fun GapBanner(a: ChannelUi, b: ChannelUi, now: Long) {
         Modifier
             .fillMaxWidth()
             .background(Pulse.surfaceHi, RoundedCornerShape(14.dp))
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         Text(detail ?: "Gap change appears once this TV has recorded a few readings.", color = Pulse.dim, fontSize = 13.sp)
     }
+}
+
+/** A change over a window, labelled with the time actually recorded when that's less than the window. */
+@Composable
+private fun ChangeRow(name: String, windowMs: Long, a: Delta?, b: Delta?) {
+    val spans = listOfNotNull(a?.spanMs, b?.spanMs)
+    val window = if (windowMs == Metrics.HOUR) "last hour" else "last 24h"
+    val period = spans.minOrNull()?.takeIf { it < windowMs * 0.9 }?.let { "last ${Fmt.duration(it)}" } ?: window
+    MetricRow("$name · $period", a?.change, b?.change, signed = true)
 }
 
 @Composable
@@ -247,7 +241,7 @@ private fun MetricRow(
 ) {
     val aWins = a != null && b != null && a > b
     val bWins = a != null && b != null && b > a
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
             Value(a, aWins, rounded, signed)
         }
@@ -267,8 +261,8 @@ private fun MetricRow(
 private fun Value(v: Long?, wins: Boolean, rounded: Boolean, signed: Boolean) {
     val color: Color = if (wins) Pulse.up else Pulse.text
     when {
-        v == null -> Text("—", color = Pulse.faint, fontSize = 26.sp)
-        rounded -> RollingNumber(v, fontSize = 30.sp, color = color, roundedSigFigs = 3)
-        else -> RollingNumber(v, fontSize = 26.sp, color = color, prefix = if (signed && v > 0) "+" else "", smoothMs = 2000)
+        v == null -> Text("—", color = Pulse.faint, fontSize = 24.sp)
+        rounded -> FitRollingNumber(v, maxFontSize = 28.sp, color = color, roundedSigFigs = 3)
+        else -> FitRollingNumber(v, maxFontSize = 24.sp, color = color, prefix = if (signed && v > 0) "+" else "", smoothMs = 2000)
     }
 }

@@ -49,6 +49,7 @@ import com.channelpulse.tv.ui.TwoUp
 import com.channelpulse.tv.ui.components.Avatar
 import com.channelpulse.tv.ui.components.BarChartCard
 import com.channelpulse.tv.ui.components.DeltaText
+import com.channelpulse.tv.ui.components.FitRollingNumber
 import com.channelpulse.tv.ui.components.LiveBadge
 import com.channelpulse.tv.ui.components.PillButton
 import com.channelpulse.tv.ui.components.RollingNumber
@@ -82,7 +83,6 @@ fun ChannelDetailScreen(
         }
     }
 
-    val lastHour = Metrics.views(channel, now, Metrics.HOUR)
     val lastDay = Metrics.views(channel, now, Metrics.DAY)
     val subsDay = Metrics.subs(channel, now, Metrics.DAY)
 
@@ -152,30 +152,35 @@ fun ChannelDetailScreen(
                     when {
                         st == null -> Text("—", fontSize = 44.sp, fontWeight = FontWeight.Bold)
                         st.subscribersHidden -> Text("Hidden", fontSize = 36.sp, color = Pulse.dim)
-                        else -> RollingNumber(st.subscribers, fontSize = 44.sp, roundedSigFigs = 3)
+                        else -> FitRollingNumber(st.subscribers, maxFontSize = 44.sp, roundedSigFigs = 3)
                     }
-                    DeltaText(Metrics.label(subsDay, Metrics.DAY)?.let { "$it last 24h" }, Metrics.positive(subsDay))
+                    DeltaText(Metrics.labelOver(subsDay, Metrics.DAY, "last 24h"), Metrics.positive(subsDay))
                 }
             },
             1.2f to { m ->
-                StatTile("Total views", m, note = "Exact count") {
-                    if (st != null) RollingNumber(st.views, fontSize = 44.sp, smoothMs = 4000)
+                // Exact, but YouTube refreshes a channel's total only now and then, so no "last hour" here.
+                StatTile("Total views", m, note = "Exact · updates now and then") {
+                    if (st != null) FitRollingNumber(st.views, maxFontSize = 44.sp, smoothMs = 4000)
                     else Text("—", fontSize = 44.sp, fontWeight = FontWeight.Bold)
-                    DeltaText(Metrics.label(lastHour, Metrics.HOUR)?.let { "$it last hour" }, Metrics.positive(lastHour))
                 }
             },
             1f to { m ->
                 StatTile("Last 24 hours", m, note = "Views recorded on this TV") {
                     val d = lastDay
-                    if (d != null) RollingNumber(d.change, fontSize = 30.sp, prefix = if (d.change > 0) "+" else "", smoothMs = 2000)
+                    if (d != null) FitRollingNumber(d.change, maxFontSize = 30.sp, prefix = if (d.change > 0) "+" else "", smoothMs = 2000)
                     else Text("Collecting…", fontSize = 18.sp, color = Pulse.faint, modifier = Modifier.padding(vertical = 8.dp))
-                    val rate = lastHour?.let { if (it.spanMs > 0) it.change * Metrics.HOUR / it.spanMs else null }
-                    Text(rate?.let { "≈ ${Fmt.full(it)} views/hour" } ?: " ", color = Pulse.dim, fontSize = 13.sp)
+                    // The channel total moves in steps, so only average it once a few hours are recorded.
+                    val line = when {
+                        d == null -> " "
+                        d.spanMs < 3 * Metrics.HOUR -> "over the last ${Fmt.duration(d.spanMs)}"
+                        else -> "≈ ${Fmt.full(d.change * Metrics.HOUR / d.spanMs)} views/hour"
+                    }
+                    Text(line, color = Pulse.dim, fontSize = 13.sp)
                 }
             },
             0.8f to { m ->
                 StatTile("Videos", m) {
-                    if (st != null) RollingNumber(st.videoCount, fontSize = 30.sp) else Text("—", fontSize = 30.sp)
+                    if (st != null) FitRollingNumber(st.videoCount, maxFontSize = 30.sp) else Text("—", fontSize = 30.sp)
                 }
             },
         )
@@ -278,7 +283,7 @@ private fun VideoCard(video: VideoStats, history: List<VideoSample>, now: Long) 
                 RollingNumber(video.views, fontSize = 20.sp, smoothMs = 3000)
                 Text(" views", color = Pulse.dim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 2.dp))
             }
-            DeltaText(Metrics.label(recent, Metrics.HOUR)?.let { "$it last hour" }, Metrics.positive(recent), fontSize = 12)
+            DeltaText(Metrics.labelOver(recent, Metrics.HOUR, "last hour"), Metrics.positive(recent), fontSize = 12)
             Text(
                 "${Fmt.compact(video.likes)} likes · ${Fmt.compact(video.comments)} comments · ${Fmt.ago(video.publishedAt, now)}",
                 color = Pulse.faint,

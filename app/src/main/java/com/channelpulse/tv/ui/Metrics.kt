@@ -55,6 +55,13 @@ object Metrics {
         return if (d.spanMs >= windowMs * 0.9) s else "$s in ${Fmt.duration(d.spanMs)}"
     }
 
+    /** "+1,234 last 24h", or "+1,234 in the last 3h 5m" while history doesn't cover the window yet. */
+    fun labelOver(d: Delta?, windowMs: Long, windowName: String): String? {
+        if (d == null) return null
+        val s = Fmt.signed(d.change)
+        return if (d.spanMs >= windowMs * 0.9) "$s $windowName" else "$s in the last ${Fmt.duration(d.spanMs)}"
+    }
+
     fun positive(d: Delta?): Boolean? = d?.let { if (it.change == 0L) null else it.change > 0 }
 
     /** Views per hour over the last 48 hours (48 bars). */
