@@ -47,7 +47,7 @@ Each project gets 10,000 units/day. Want faster refreshes? Create keys in 2–3 
 # → app/build/outputs/apk/release/app-release.apk
 ```
 
-The release build is signed with the debug key so it installs right away. Use your own signing key before publishing anywhere.
+The release build is signed with your own key once you've set one up (see **Signing** below); until then it uses the debug key so it still installs.
 
 ## 3. Install on the TV
 
@@ -66,6 +66,29 @@ Or copy the APK with a USB stick / "Send files to TV" and open it with a file ma
 The app shows a QR code. Scan it with your phone (same Wi-Fi), paste your API key, then add channels — one per line to add several at once. Everything appears on the TV within seconds. Settings on the TV lets you do the same with the remote, reorder channels, set the refresh speed and the live-wall timing.
 
 The phone page only works on your local network and needs the random code in the QR link.
+
+## Signing
+
+Android only installs an update over an app signed with the same key. The debug key is different on every computer (and on every GitHub build), so set up your own release key once and every build, local or on GitHub, can update the app on your TV.
+
+**1. Create the key** (keep the password; you'll need it below):
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 -keyalg RSA -keysize 4096 -validity 10000 -alias channelpulse -keystore C:/Users/you/keys/channelpulse-release.jks
+```
+
+`keytool` comes with Android Studio (`C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe`). **Back up the .jks file and its password.** If you lose them you can never update the app again without uninstalling it.
+
+**2. Use it on your computer:** copy `keystore.properties.example` to `keystore.properties` (ignored by git), set `storeFile` to the .jks path and `storePassword` to its password.
+
+**3. Use it on GitHub:** add two repository secrets (Settings → Secrets and variables → Actions):
+
+```bash
+base64 -w0 C:/Users/you/keys/channelpulse-release.jks | gh secret set SIGNING_KEYSTORE_BASE64
+gh secret set SIGNING_PASSWORD
+```
+
+Without a key, release builds still work but are signed with the debug key, and Gradle prints a warning.
 
 ## Screensaver
 

@@ -10,3 +10,7 @@
 .cxx/
 *.apk
 *.aab
+# Release signing key and its passwords: keep these off GitHub (see "Signing" in the README)
+keystore.properties
+*.jks
+*.keystore
