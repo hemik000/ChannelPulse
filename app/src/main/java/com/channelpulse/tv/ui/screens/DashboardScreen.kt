@@ -97,6 +97,7 @@ fun DashboardScreen(
                     "3.  Add channels by @handle or link. Add as many as you like.",
                 ),
                 phoneUrl = phoneUrl,
+                phoneSetupOn = settings.phoneSetup,
             )
             channels.isEmpty() -> SetupPanel(
                 title = "Add your first channel",
@@ -106,6 +107,7 @@ fun DashboardScreen(
                     "Or open Settings to type one with the remote.",
                 ),
                 phoneUrl = phoneUrl,
+                phoneSetupOn = settings.phoneSetup,
             )
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
@@ -263,7 +265,7 @@ private fun AddCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun SetupPanel(title: String, lines: List<String>, phoneUrl: String?) {
+private fun SetupPanel(title: String, lines: List<String>, phoneUrl: String?, phoneSetupOn: Boolean) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -287,6 +289,8 @@ private fun SetupPanel(title: String, lines: List<String>, phoneUrl: String?) {
             if (phoneUrl != null) {
                 Text("Or open on any device on this network:", color = Pulse.faint, fontSize = 13.sp)
                 Text(phoneUrl, color = Pulse.text, fontSize = 16.sp)
+            } else if (!phoneSetupOn) {
+                Text("Phone setup is off. Start it in Settings to use your phone.", color = Pulse.warn, fontSize = 14.sp)
             } else {
                 Text("Connect this TV to Wi-Fi or Ethernet to use phone setup.", color = Pulse.warn, fontSize = 14.sp)
             }

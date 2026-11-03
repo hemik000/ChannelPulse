@@ -150,6 +150,11 @@ object CompanionPage {
         }
         sb.append("</form></div>")
 
+        // Done
+        sb.append("<h2>Finished?</h2><form method=post action='/phone/off' class='card stack'>").append(hidden)
+        sb.append("<p class=meta>Turn off this setup page so nobody else on the network can open it. You can turn it back on in Settings on the TV.</p>")
+        sb.append("<button type=submit>Turn off phone setup</button></form>")
+
         sb.append("</main></body></html>")
         return sb.toString()
     }

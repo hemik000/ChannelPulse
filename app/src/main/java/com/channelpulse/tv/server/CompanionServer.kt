@@ -11,6 +11,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
@@ -41,7 +43,11 @@ class CompanionServer(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var server: ServerSocket? = null
 
-    val token: String = buildString {
+    /** Code from the QR link. A new one is made each time the server starts, so old links stop working. */
+    @Volatile
+    private var token: String = newToken()
+
+    private fun newToken(): String = buildString {
         val chars = "abcdefghjkmnpqrstuvwxyz23456789"
         val rnd = SecureRandom()
         repeat(8) { append(chars[rnd.nextInt(chars.length)]) }
@@ -52,16 +58,35 @@ class CompanionServer(
     val url: StateFlow<String?> = _url.asStateFlow()
 
     private var job: Job? = null
+    private var follow: Job? = null
 
     // Limits so a misbehaving device on the network can't tie up the TV before the token is checked.
     private val handlers = Semaphore(8)
     private val maxHeaders = 64
     private val maxHeaderBytes = 16_384
 
+    /** Called when the app comes to the front: serves the page while phone setup is switched on in Settings. */
+    @Synchronized
+    fun resume() {
+        if (follow?.isActive == true) return
+        follow = scope.launch {
+            settings.state.map { it.phoneSetup }.distinctUntilChanged().collect { on -> if (on) start() else stop() }
+        }
+    }
+
+    /** Called when the app goes to the background: always stops serving. */
+    @Synchronized
+    fun pause() {
+        follow?.cancel()
+        follow = null
+        stop()
+    }
+
     /** Starts listening in the background (sockets are never opened on the main thread). */
     @Synchronized
-    fun start() {
+    private fun start() {
         if (job?.isActive == true) return
+        token = newToken()
         job = scope.launch {
             val socket = bind() ?: return@launch
             synchronized(this@CompanionServer) { server = socket }
@@ -106,7 +131,7 @@ class CompanionServer(
     }
 
     @Synchronized
-    fun stop() {
+    private fun stop() {
         job?.cancel()
         job = null
         try { server?.close() } catch (ignored: Exception) {}
@@ -251,6 +276,14 @@ class CompanionServer(
             "/refresh" -> {
                 settings.setRefreshSeconds(form["seconds"]?.toIntOrNull() ?: 0)
                 "Refresh speed updated."
+            }
+            "/phone/off" -> {
+                // Switch off after this response has been sent.
+                scope.launch {
+                    delay(500)
+                    settings.setPhoneSetup(false)
+                }
+                return html(200, "OK", CompanionPage.message("Phone setup is off. This link no longer works. Turn it back on in Settings on the TV."))
             }
             "/wall" -> {
                 settings.setWallCycleSeconds(form["seconds"]?.toIntOrNull() ?: 20)

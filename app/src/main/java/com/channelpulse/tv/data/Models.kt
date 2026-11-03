@@ -64,6 +64,8 @@ data class AppSettings(
     val refreshSeconds: Int = 0,
     /** 0 = don't auto-cycle on the live wall. */
     val wallCycleSeconds: Int = 20,
+    /** Whether the phone setup web page is served while the app is open. */
+    val phoneSetup: Boolean = true,
 )
 
 data class KeyState(

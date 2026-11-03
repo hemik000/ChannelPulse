@@ -35,6 +35,7 @@ class SettingsStore(context: Context) {
             channels = channels,
             refreshSeconds = prefs.getInt("refreshSeconds", 0),
             wallCycleSeconds = prefs.getInt("wallCycleSeconds", 20),
+            phoneSetup = prefs.getBoolean("phoneSetup", true),
         )
     }
 
@@ -52,6 +53,7 @@ class SettingsStore(context: Context) {
             .putString("channels", channels.toString())
             .putInt("refreshSeconds", next.refreshSeconds)
             .putInt("wallCycleSeconds", next.wallCycleSeconds)
+            .putBoolean("phoneSetup", next.phoneSetup)
             .apply()
     }
 
@@ -97,4 +99,6 @@ class SettingsStore(context: Context) {
     fun setRefreshSeconds(seconds: Int) = update { it.copy(refreshSeconds = seconds.coerceAtLeast(0)) }
 
     fun setWallCycleSeconds(seconds: Int) = update { it.copy(wallCycleSeconds = seconds.coerceAtLeast(0)) }
+
+    fun setPhoneSetup(on: Boolean) = update { it.copy(phoneSetup = on) }
 }

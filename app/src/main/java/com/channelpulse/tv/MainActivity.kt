@@ -26,13 +26,13 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         container.repo.start()
-        container.server.start()
+        container.server.resume()
     }
 
     override fun onStop() {
         // Stop polling while the app isn't visible so API quota isn't spent on an empty room.
         container.repo.stop()
-        container.server.stop()
+        container.server.pause()
         super.onStop()
     }
 }

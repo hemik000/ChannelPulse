@@ -115,20 +115,33 @@ fun SettingsScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
             // Phone setup
             Section("Set up from your phone", Modifier.weight(1f)) {
+                val on = settings.phoneSetup
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (phoneUrl != null) {
+                    if (on && phoneUrl != null) {
                         QrCode(phoneUrl, 150.dp)
                         Spacer(Modifier.width(18.dp))
                     }
                     Column {
                         Text(
-                            "Scan with a phone on the same Wi-Fi to add channels and paste API keys with a real keyboard.",
+                            if (on) "Scan with a phone on the same Wi-Fi to add channels and paste API keys with a real keyboard."
+                            else "Phone setup is off. Start it to add channels and API keys from your phone.",
                             color = Pulse.dim, fontSize = 14.sp,
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text(phoneUrl ?: "Connect the TV to a network to use this.", fontSize = 14.sp)
+                        when {
+                            !on -> Text("Nobody on the network can open the setup page while it's off.", color = Pulse.faint, fontSize = 13.sp)
+                            phoneUrl != null -> Text(phoneUrl, fontSize = 14.sp)
+                            else -> Text("Connect the TV to a network to use this.", fontSize = 14.sp)
+                        }
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+                // One button whose label flips, so focus stays on it after pressing.
+                PillButton(
+                    if (on) "Stop phone setup" else "Start phone setup",
+                    { container.settings.setPhoneSetup(!on) },
+                    danger = on,
+                )
             }
 
             // Add channel with the remote
