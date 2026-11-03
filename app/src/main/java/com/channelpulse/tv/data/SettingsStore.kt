@@ -36,6 +36,9 @@ class SettingsStore(context: Context) {
             refreshSeconds = prefs.getInt("refreshSeconds", 0),
             wallCycleSeconds = prefs.getInt("wallCycleSeconds", 20),
             phoneSetup = prefs.getBoolean("phoneSetup", true),
+            pixelShift = prefs.getBoolean("pixelShift", true),
+            nightDimStart = prefs.getInt("nightDimStart", -1),
+            nightDimEnd = prefs.getInt("nightDimEnd", 7),
         )
     }
 
@@ -54,6 +57,9 @@ class SettingsStore(context: Context) {
             .putInt("refreshSeconds", next.refreshSeconds)
             .putInt("wallCycleSeconds", next.wallCycleSeconds)
             .putBoolean("phoneSetup", next.phoneSetup)
+            .putBoolean("pixelShift", next.pixelShift)
+            .putInt("nightDimStart", next.nightDimStart)
+            .putInt("nightDimEnd", next.nightDimEnd)
             .apply()
     }
 
@@ -101,4 +107,9 @@ class SettingsStore(context: Context) {
     fun setWallCycleSeconds(seconds: Int) = update { it.copy(wallCycleSeconds = seconds.coerceAtLeast(0)) }
 
     fun setPhoneSetup(on: Boolean) = update { it.copy(phoneSetup = on) }
+
+    fun setPixelShift(on: Boolean) = update { it.copy(pixelShift = on) }
+
+    /** [start] -1 turns night dimming off. */
+    fun setNightDim(start: Int, end: Int) = update { it.copy(nightDimStart = start, nightDimEnd = end) }
 }

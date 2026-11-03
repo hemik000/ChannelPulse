@@ -51,6 +51,7 @@ class PulseRepository(
     private val uploads = ConcurrentHashMap<String, Pair<Long, List<String>>>()
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private var job: Job? = null
+    private var users = 0
     private var lastSave = 0L
 
     private val _status = MutableStateFlow(PollStatus())
@@ -58,7 +59,10 @@ class PulseRepository(
 
     val channels: StateFlow<List<ChannelUi>> =
         combine(settings.state, stats, videos, history.version) { s, st, vids, _ ->
-            s.channels.map { c -> ChannelUi(c, st[c.id], vids[c.id].orEmpty(), history.channel(c.id)) }
+            s.channels.map { c ->
+                val list = vids[c.id].orEmpty()
+                ChannelUi(c, st[c.id], list, history.channel(c.id), history.videos(list.map { it.id }))
+            }
         }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     init {
@@ -74,7 +78,13 @@ class PulseRepository(
 
     fun videoHistory(videoId: String): List<VideoSample> = history.video(videoId)
 
+    /**
+     * Starts polling. Calls are counted: the app and the screensaver each call [start] and [stop],
+     * and polling runs while either of them is showing.
+     */
+    @Synchronized
     fun start() {
+        users++
         if (job?.isActive == true) return
         keys.forgetAllProblems()
         job = scope.launch {
@@ -92,7 +102,10 @@ class PulseRepository(
         }
     }
 
+    @Synchronized
     fun stop() {
+        users = (users - 1).coerceAtLeast(0)
+        if (users > 0) return
         job?.cancel()
         job = null
         _status.update { it.copy(polling = false) }

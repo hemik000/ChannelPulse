@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +46,7 @@ import com.channelpulse.tv.data.Fmt
 import com.channelpulse.tv.data.PollStatus
 import com.channelpulse.tv.ui.Metrics
 import com.channelpulse.tv.ui.Pulse
+import com.channelpulse.tv.ui.Screen
 import com.channelpulse.tv.ui.components.Avatar
 import com.channelpulse.tv.ui.components.BarChart
 import com.channelpulse.tv.ui.components.DeltaText
@@ -156,58 +158,60 @@ fun LiveWallScreen(
 
 @Composable
 private fun WallChannel(c: ChannelUi, now: Long) {
+    // Sized for a 960 dp TV and scaled to the actual width, so big numbers never overflow.
+    val k = Screen.wallScale()
     val st = c.stats
-    val lastHour = Metrics.views(c, now, Metrics.HOUR)
+    val lastHour = Metrics.uploadViews(c, now, Metrics.HOUR)
     val live = c.liveVideo
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 64.dp),
+        Modifier.fillMaxWidth().padding(horizontal = Screen.sidePadding()),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(c.thumb, 64.dp)
+            Avatar(c.thumb, 64.dp * k)
             Spacer(Modifier.width(18.dp))
             Column {
-                Text(c.title, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(c.handle, fontSize = 16.sp, color = Pulse.dim)
+                Text(c.title, fontSize = (34 * k).sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(c.handle, fontSize = (16 * k).sp, color = Pulse.dim)
             }
         }
         Spacer(Modifier.height(10.dp))
         when {
-            st == null -> Text("—", fontSize = 108.sp, fontWeight = FontWeight.Black)
-            st.subscribersHidden -> Text("Hidden", fontSize = 80.sp, color = Pulse.dim)
-            else -> RollingNumber(st.subscribers, fontSize = 112.sp, fontWeight = FontWeight.Black, roundedSigFigs = 3)
+            st == null -> Text("—", fontSize = (108 * k).sp, fontWeight = FontWeight.Black)
+            st.subscribersHidden -> Text("Hidden", fontSize = (80 * k).sp, color = Pulse.dim)
+            else -> RollingNumber(st.subscribers, fontSize = (112 * k).sp, fontWeight = FontWeight.Black, roundedSigFigs = 3)
         }
         Text(
             if (st != null && st.subscribers >= 1000 && !st.subscribersHidden) "SUBSCRIBERS  ·  rounded by YouTube" else "SUBSCRIBERS",
             color = Pulse.dim,
-            fontSize = 15.sp,
+            fontSize = (15 * k).sp,
             letterSpacing = 3.sp,
         )
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (st != null) RollingNumber(st.views, fontSize = 44.sp, smoothMs = 5000) else Text("—", fontSize = 44.sp)
-                Text("TOTAL VIEWS", color = Pulse.dim, fontSize = 12.sp, letterSpacing = 2.sp)
+                if (st != null) RollingNumber(st.views, fontSize = (44 * k).sp, smoothMs = 5000) else Text("—", fontSize = (44 * k).sp)
+                Text("TOTAL VIEWS", color = Pulse.dim, fontSize = (12 * k).sp, letterSpacing = 2.sp)
             }
-            Spacer(Modifier.width(56.dp))
+            Spacer(Modifier.width(56.dp * k))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val label = Metrics.label(lastHour, Metrics.HOUR)
                 if (lastHour != null) {
-                    RollingNumber(lastHour.change, fontSize = 44.sp, color = Pulse.up, prefix = if (lastHour.change > 0) "+" else "", smoothMs = 3000)
-                    Text(if (label != null && label.contains(" in ")) "VIEWS IN ${Fmt.duration(lastHour.spanMs).uppercase()}" else "VIEWS LAST HOUR", color = Pulse.dim, fontSize = 12.sp, letterSpacing = 2.sp)
+                    RollingNumber(lastHour.change, fontSize = (44 * k).sp, color = Pulse.up, prefix = if (lastHour.change > 0) "+" else "", smoothMs = 3000)
+                    Text(if (label != null && label.contains(" in ")) "UPLOAD VIEWS · LAST ${(lastHour.spanMs / 60_000L).coerceAtLeast(1)} MIN" else "UPLOAD VIEWS · LAST HOUR", color = Pulse.dim, fontSize = (12 * k).sp, letterSpacing = 2.sp)
                 } else {
-                    DeltaText(null, null, fontSize = 22)
-                    Text("VIEWS LAST HOUR", color = Pulse.dim, fontSize = 12.sp, letterSpacing = 2.sp)
+                    DeltaText(null, null, fontSize = (22 * k).toInt())
+                    Text("UPLOAD VIEWS · LAST HOUR", color = Pulse.dim, fontSize = (12 * k).sp, letterSpacing = 2.sp)
                 }
             }
         }
         Spacer(Modifier.height(18.dp))
         if (live != null) {
             LiveBadge(live.concurrentViewers, big = true)
-            Text(live.title, color = Pulse.dim, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            Text(live.title, color = Pulse.dim, fontSize = (15 * k).sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
         } else {
-            BarChart(Metrics.lastHourBars(c, now), Modifier.width(520.dp).height(38.dp))
-            Text("VIEWS PER 2 MIN · LAST HOUR", color = Pulse.faint, fontSize = 10.sp, letterSpacing = 2.sp, modifier = Modifier.padding(top = 6.dp))
+            BarChart(Metrics.uploadBars(c, now), Modifier.fillMaxWidth(0.6f).widthIn(max = 520.dp).height(38.dp * k))
+            Text("UPLOAD VIEWS PER 2 MIN · LAST HOUR", color = Pulse.faint, fontSize = (10 * k).sp, letterSpacing = 2.sp, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }

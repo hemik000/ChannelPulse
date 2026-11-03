@@ -18,7 +18,9 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -41,6 +43,7 @@ import com.channelpulse.tv.data.PollStatus
 import com.channelpulse.tv.ui.DashFocus
 import com.channelpulse.tv.ui.Metrics
 import com.channelpulse.tv.ui.Pulse
+import com.channelpulse.tv.ui.Screen
 import com.channelpulse.tv.ui.components.Avatar
 import com.channelpulse.tv.ui.components.BarChart
 import com.channelpulse.tv.ui.components.DeltaText
@@ -49,6 +52,9 @@ import com.channelpulse.tv.ui.components.QrCode
 import com.channelpulse.tv.ui.components.RollingNumber
 import com.channelpulse.tv.ui.components.rememberNow
 import kotlinx.coroutines.delay
+
+/** Focused cards grow by this much; the grid's content padding leaves room for it. */
+private const val FOCUS_SCALE = 1.05f
 
 @Composable
 fun DashboardScreen(
@@ -75,7 +81,8 @@ fun DashboardScreen(
         try { firstFocus.requestFocus() } catch (ignored: Exception) {}
     }
 
-    Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 26.dp)) {
+    val side = Screen.sidePadding()
+    Column(Modifier.fillMaxSize().padding(start = side - 12.dp, end = side - 12.dp, top = 26.dp)) {
         Header(
             status = status,
             now = now,
@@ -85,8 +92,8 @@ fun DashboardScreen(
             wallFocus = if (ready && focusTarget == DashFocus.Wall) firstFocus else null,
             settingsFocus = if (!ready || focusTarget == DashFocus.Settings) firstFocus else null,
         )
-        status.error?.let { ErrorBanner(it) }
-        Spacer(Modifier.height(14.dp))
+        status.error?.let { Box(Modifier.padding(horizontal = 12.dp)) { ErrorBanner(it) } }
+        Spacer(Modifier.height(6.dp))
 
         when {
             settings.apiKeys.isEmpty() -> SetupPanel(
@@ -110,8 +117,10 @@ fun DashboardScreen(
                 phoneSetupOn = settings.phoneSetup,
             )
             else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp, start = 4.dp, end = 4.dp),
+                // 3 columns on a TV, fewer on narrow screens.
+                columns = GridCells.Adaptive(minSize = 270.dp),
+                // Room for a focused card to grow without being clipped by the grid's edges.
+                contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp, start = 12.dp, end = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(22.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
                 state = gridState,
@@ -141,14 +150,18 @@ private fun Header(
     wallFocus: FocusRequester?,
     settingsFocus: FocusRequester?,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    val compact = Screen.compact()
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(12.dp).background(Pulse.accent, CircleShape))
         Spacer(Modifier.width(10.dp))
         Text("Channel Pulse", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.width(18.dp))
-        Text(statusLine(status, now), color = Pulse.dim, fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
-        Text(Fmt.clock(now), color = Pulse.dim, fontSize = 18.sp)
-        Spacer(Modifier.width(18.dp))
+        // Narrow screens keep just the title and buttons.
+        Text(if (compact) "" else statusLine(status, now), color = Pulse.dim, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        if (!compact) {
+            Text(Fmt.clock(now), color = Pulse.dim, fontSize = 18.sp)
+            Spacer(Modifier.width(18.dp))
+        }
         if (showWall) {
             PillButton("Live wall", onWall, modifier = if (wallFocus != null) Modifier.focusRequester(wallFocus) else Modifier)
             Spacer(Modifier.width(10.dp))
@@ -184,12 +197,13 @@ fun ErrorBanner(text: String) {
 @Composable
 private fun ChannelCard(channel: ChannelUi, now: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val st = channel.stats
-    val lastHour = Metrics.views(channel, now, Metrics.HOUR)
+    val lastHour = Metrics.uploadViews(channel, now, Metrics.HOUR)
     val live = channel.liveVideo
     val viewers: Long? = live?.concurrentViewers
     Card(
         onClick = onClick,
         modifier = modifier.height(212.dp),
+        scale = CardDefaults.scale(focusedScale = FOCUS_SCALE),
         colors = CardDefaults.colors(
             containerColor = Pulse.surface,
             contentColor = Pulse.text,
@@ -228,12 +242,12 @@ private fun ChannelCard(channel: ChannelUi, now: Long, onClick: () -> Unit, modi
                     }
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("LAST HOUR", color = Pulse.dim, fontSize = 10.sp, letterSpacing = 1.sp)
+                    Text("UPLOADS · LAST HOUR", color = Pulse.dim, fontSize = 10.sp, letterSpacing = 1.sp)
                     DeltaText(Metrics.label(lastHour, Metrics.HOUR), Metrics.positive(lastHour), fontSize = 14)
                 }
             }
             Spacer(Modifier.height(10.dp))
-            BarChart(Metrics.lastHourBars(channel, now), Modifier.fillMaxWidth().height(24.dp))
+            BarChart(Metrics.uploadBars(channel, now), Modifier.fillMaxWidth().height(24.dp))
         }
     }
 }
@@ -243,6 +257,7 @@ private fun AddCard(onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.height(212.dp),
+        scale = CardDefaults.scale(focusedScale = FOCUS_SCALE),
         colors = CardDefaults.colors(
             containerColor = Color.Transparent,
             contentColor = Pulse.dim,
@@ -266,34 +281,50 @@ private fun AddCard(onClick: () -> Unit) {
 
 @Composable
 private fun SetupPanel(title: String, lines: List<String>, phoneUrl: String?, phoneSetupOn: Boolean) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 18.dp)
-            .background(Pulse.surface, RoundedCornerShape(20.dp))
-            .padding(28.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (phoneUrl != null) {
-            QrCode(phoneUrl, 210.dp)
-            Spacer(Modifier.width(32.dp))
-        }
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(14.dp))
-            lines.forEach {
-                Text(it, color = Pulse.dim, fontSize = 17.sp)
-                Spacer(Modifier.height(8.dp))
-            }
-            Spacer(Modifier.height(10.dp))
+    val panel = Modifier
+        .padding(horizontal = 12.dp)
+        .fillMaxWidth()
+        .padding(top = 12.dp)
+        .background(Pulse.surface, RoundedCornerShape(20.dp))
+        .padding(28.dp)
+    val text: @Composable (Modifier) -> Unit = { m -> SetupText(m, title, lines, phoneUrl, phoneSetupOn) }
+    if (Screen.compact()) {
+        // Stacked on narrow screens so the steps get the full width.
+        Column(panel.verticalScroll(rememberScrollState())) {
             if (phoneUrl != null) {
-                Text("Or open on any device on this network:", color = Pulse.faint, fontSize = 13.sp)
-                Text(phoneUrl, color = Pulse.text, fontSize = 16.sp)
-            } else if (!phoneSetupOn) {
-                Text("Phone setup is off. Start it in Settings to use your phone.", color = Pulse.warn, fontSize = 14.sp)
-            } else {
-                Text("Connect this TV to Wi-Fi or Ethernet to use phone setup.", color = Pulse.warn, fontSize = 14.sp)
+                QrCode(phoneUrl, 180.dp)
+                Spacer(Modifier.height(20.dp))
             }
+            text(Modifier)
+        }
+    } else {
+        Row(panel, verticalAlignment = Alignment.CenterVertically) {
+            if (phoneUrl != null) {
+                QrCode(phoneUrl, 210.dp)
+                Spacer(Modifier.width(32.dp))
+            }
+            text(Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SetupText(modifier: Modifier, title: String, lines: List<String>, phoneUrl: String?, phoneSetupOn: Boolean) {
+    Column(modifier) {
+        Text(title, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(14.dp))
+        lines.forEach {
+            Text(it, color = Pulse.dim, fontSize = 17.sp)
+            Spacer(Modifier.height(8.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        if (phoneUrl != null) {
+            Text("Or open on any device on this network:", color = Pulse.faint, fontSize = 13.sp)
+            Text(phoneUrl, color = Pulse.text, fontSize = 16.sp)
+        } else if (!phoneSetupOn) {
+            Text("Phone setup is off. Start it in Settings to use your phone.", color = Pulse.warn, fontSize = 14.sp)
+        } else {
+            Text("Connect this TV to Wi-Fi or Ethernet to use phone setup.", color = Pulse.warn, fontSize = 14.sp)
         }
     }
 }

@@ -68,6 +68,10 @@ class HistoryStore(private val file: File) {
     fun video(id: String): List<VideoSample> = videos[id]?.toList().orEmpty()
 
     @Synchronized
+    fun videos(ids: List<String>): Map<String, List<VideoSample>> =
+        ids.associateWith { videos[it]?.toList().orEmpty() }
+
+    @Synchronized
     fun retain(channelIds: Set<String>, videoIds: Set<String>) {
         channels.keys.retainAll(channelIds)
         videos.keys.retainAll(videoIds)

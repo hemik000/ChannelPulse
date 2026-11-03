@@ -49,6 +49,8 @@ data class ChannelUi(
     val stats: ChannelStats?,
     val videos: List<VideoStats>,
     val history: List<Sample>,
+    /** Recorded view readings for each of [videos], keyed by video ID. */
+    val videoHistory: Map<String, List<VideoSample>> = emptyMap(),
 ) {
     val id: String get() = channel.id
     val title: String get() = stats?.title ?: channel.title
@@ -66,6 +68,12 @@ data class AppSettings(
     val wallCycleSeconds: Int = 20,
     /** Whether the phone setup web page is served while the app is open. */
     val phoneSetup: Boolean = true,
+    /** Slowly shifts always-on screens by a few pixels so nothing burns into the panel. */
+    val pixelShift: Boolean = true,
+    /** Hour (0-23) the screen starts dimming at night, or -1 for never. */
+    val nightDimStart: Int = -1,
+    /** Hour (0-23) the night dimming ends. */
+    val nightDimEnd: Int = 7,
 )
 
 data class KeyState(

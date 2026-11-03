@@ -2,12 +2,14 @@
 
 A YouTube-Studio-style wall display for Android TV / Google TV / Fire TV, built with Kotlin and Compose for TV.
 
-- **Dashboard** – every channel you track as a card: rolling subscriber count, live total views, views in the last hour, a 60-minute mini chart, and a red dot when the channel is live.
+- **Dashboard** – every channel you track as a card: rolling subscriber count, live total views, views on the newest uploads in the last hour, a 60-minute mini chart, and a red dot when the channel is live.
 - **Channel page** – big counters, a "last 60 minutes" and "last 48 hours" views chart, and the latest uploads with live view counts, likes, comments and concurrent viewers for live streams. Press OK on a video to open it in the YouTube app.
-- **Live wall** – a full-screen giant counter that cycles through your channels. ◀ ▶ switches, OK pauses.
+- **Head to head** – compare two channels side by side, with the subscriber gap and how it moved over the last 24 hours.
+- **Live wall** – a full-screen giant counter that cycles through your channels. ◀ ▶ switches, OK pauses. It can also be the TV's screensaver.
+- **Screen care** – burn-in protection (a slow few-pixel drift) and optional night dimming for TVs left on all day.
 - **Multiple channels** – add as many as you like by `@handle`, channel link or `UC…` ID.
 - **Multiple API keys** – the app rotates between keys and picks the fastest refresh rate your combined quota allows.
-- **Phone setup** – scan the QR code on the TV to add channels and paste API keys from your phone's keyboard.
+- **Phone setup** – scan the QR code on the TV to add channels and paste API keys from your phone's keyboard. Start/stop it in Settings; it also switches itself off after 15 idle minutes once you're set up.
 
 ## What "real time" means here
 
@@ -17,7 +19,8 @@ A YouTube-Studio-style wall display for Android TV / Google TV / Fire TV, built 
 | Video views, likes, comments | `videos.list` | Exact |
 | Live stream viewers | `videos.list` → `liveStreamingDetails.concurrentViewers` | Exact, while live |
 | Subscribers | `channels.list` | Exact under 1,000; rounded down to 3 significant figures above that (YouTube does this for every app; the faint digits on screen show the rounded part) |
-| Last hour / 60-minute / 48-hour charts | Readings recorded by the TV | Fill in while the app is open |
+| "Last hour" and the 60-minute chart | View changes on each channel's 5 newest uploads, recorded by the TV | Fill in while the app is open. Video view counts update often; a channel's total views only update now and then, so the total isn't used here |
+| 48-hour chart | Total views recorded by the TV | Fills in while the app is open |
 
 YouTube Studio's own real-time panel isn't exposed by any public API. Google's sign-in flow for TVs only allows the YouTube Data API scopes, and YouTube Analytics data lags by up to 48 hours, so this app uses the Data API and polls it as often as your quota allows.
 
@@ -64,12 +67,26 @@ The app shows a QR code. Scan it with your phone (same Wi-Fi), paste your API ke
 
 The phone page only works on your local network and needs the random code in the QR link.
 
+## Screensaver
+
+Settings → Screensaver → **On** makes the live wall available as a screensaver; **Off** hides it again.
+
+Google TV's settings only list Google's own Ambient mode, so other apps' screensavers don't show up there. To let the On/Off switch select the live wall itself, grant one permission once from a computer on the same network, then press **On** again:
+
+```bash
+adb connect <tv-ip>:5555
+adb shell pm grant com.channelpulse.tv android.permission.WRITE_SECURE_SETTINGS
+```
+
+**Off** then gives the TV back the screensaver it had before.
+
 ## Project layout
 
 ```
 app/src/main/java/com/channelpulse/tv/
 ├── MainActivity.kt          starts/stops polling and the phone server with the app
 ├── PulseApp.kt              creates the single instances
+├── PulseDream.kt            the live wall as the TV screensaver, and its on/off switch
 ├── data/
 │   ├── YouTubeApi.kt        Data API v3 client (channels, playlistItems, videos)
 │   ├── PulseRepository.kt   polling loop, batching, auto refresh rate, key rotation

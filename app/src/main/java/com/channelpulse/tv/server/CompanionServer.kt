@@ -35,6 +35,9 @@ import java.security.SecureRandom
  * Lets you paste API keys and add channels with a phone keyboard instead of the TV remote.
  * Every request must carry a random token from the QR code, so other devices on the network can't use it.
  */
+/** Phone setup switches itself off after this long without use, once keys and channels exist. */
+const val AUTO_OFF_MS = 15L * 60_000L
+
 class CompanionServer(
     private val repo: PulseRepository,
     private val settings: SettingsStore,
@@ -59,6 +62,10 @@ class CompanionServer(
 
     private var job: Job? = null
     private var follow: Job? = null
+
+    /** Last time a phone used the page (or the server started); drives the automatic switch-off. */
+    @Volatile
+    private var lastUse = 0L
 
     // Limits so a misbehaving device on the network can't tie up the TV before the token is checked.
     private val handlers = Semaphore(8)
@@ -87,6 +94,7 @@ class CompanionServer(
     private fun start() {
         if (job?.isActive == true) return
         token = newToken()
+        lastUse = System.currentTimeMillis()
         job = scope.launch {
             val socket = bind() ?: return@launch
             synchronized(this@CompanionServer) { server = socket }
@@ -95,6 +103,10 @@ class CompanionServer(
                 while (isActive) {
                     val url = localIp()?.let { "http://$it:${socket.localPort}/?t=$token" }
                     if (isActive) _url.value = url
+                    // Once keys and channels are set up, switch off after a quiet spell. First-run setup never times out.
+                    val s = settings.state.value
+                    val setUp = s.apiKeys.isNotEmpty() && s.channels.isNotEmpty()
+                    if (setUp && System.currentTimeMillis() - lastUse > AUTO_OFF_MS) settings.setPhoneSetup(false)
                     delay(10_000)
                 }
             }
@@ -216,6 +228,7 @@ class CompanionServer(
         if (!MessageDigest.isEqual(givenToken.toByteArray(), token.toByteArray())) {
             return html(403, "Forbidden", CompanionPage.message("This link has expired. Scan the QR code on your TV again."))
         }
+        lastUse = System.currentTimeMillis()
         if (method == "GET" && path == "/") {
             val page = CompanionPage.render(
                 token = token,
