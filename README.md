@@ -123,3 +123,7 @@ app/src/main/java/com/channelpulse/tv/
 ```
 
 Stack: Kotlin 2.0, AGP 8.7, Compose BOM 2024.12, `androidx.tv:tv-material` 1.0, OkHttp, Coil, ZXing. Android Studio may offer to upgrade these; that's safe to accept.
+
+## License
+
+[MIT](LICENSE) © 2026 Hemik Vijay. You can use, change and share this code, including in your own apps, as long as you keep the copyright notice.
