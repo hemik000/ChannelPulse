@@ -20,6 +20,11 @@ object CompanionPage {
         }
     }
 
+    /** Short non-reversible ID for a key, so the page never sends the full key back to the phone. */
+    fun keyId(key: String): String =
+        java.security.MessageDigest.getInstance("SHA-256").digest(key.toByteArray())
+            .take(8).joinToString("") { "%02x".format(it) }
+
     private const val STYLE = """
         :root { color-scheme: dark; }
         * { box-sizing: border-box; }
@@ -119,7 +124,7 @@ object CompanionPage {
             }
             sb.append("<div class=row><div class=grow><div class=name>").append(esc(Fmt.maskKey(key))).append("</div>")
             sb.append("<div class=meta>").append(status).append("</div></div>")
-            sb.append("<form class=inline method=post action='/key/remove'>$hidden<input type=hidden name=key value='${esc(key)}'><button class=ghost>Remove</button></form></div>")
+            sb.append("<form class=inline method=post action='/key/remove'>$hidden<input type=hidden name=kid value='${keyId(key)}'><button class=ghost>Remove</button></form></div>")
         }
         sb.append("<form method=post action='/key/add' class=stack>").append(hidden)
         sb.append("<input type=text name=key placeholder='AIza…' autocomplete=off autocapitalize=off spellcheck=false>")

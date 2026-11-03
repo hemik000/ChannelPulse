@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -52,6 +53,11 @@ class CompanionServer(
 
     private var job: Job? = null
 
+    // Limits so a misbehaving device on the network can't tie up the TV before the token is checked.
+    private val handlers = Semaphore(8)
+    private val maxHeaders = 64
+    private val maxHeaderBytes = 16_384
+
     /** Starts listening in the background (sockets are never opened on the main thread). */
     @Synchronized
     fun start() {
@@ -70,7 +76,25 @@ class CompanionServer(
             try {
                 while (isActive) {
                     val client = socket.accept()
-                    launch { handle(client) }
+                    if (!handlers.tryAcquire()) {
+                        try { client.close() } catch (ignored: Exception) {}
+                        continue
+                    }
+                    launch {
+                        // Overall deadline per connection: closing the socket unblocks a slow-dripping read.
+                        val deadline = launch {
+                            delay(30_000)
+                            try { client.close() } catch (ignored: Exception) {}
+                        }
+                        try {
+                            handle(client)
+                        } catch (ignored: Exception) {
+                        } finally {
+                            deadline.cancel()
+                            try { client.close() } catch (ignored: Exception) {}
+                            handlers.release()
+                        }
+                    }
                 }
             } catch (ignored: Exception) {
                 // Socket closed by stop().
@@ -125,9 +149,13 @@ class CompanionServer(
             val input = BufferedInputStream(s.getInputStream())
             val requestLine = readLine(input) ?: return
             val headers = HashMap<String, String>()
+            var headerCount = 0
+            var headerBytes = 0
             while (true) {
                 val line = readLine(input) ?: break
                 if (line.isEmpty()) break
+                headerBytes += line.length
+                if (++headerCount > maxHeaders || headerBytes > maxHeaderBytes) return
                 val i = line.indexOf(':')
                 if (i > 0) headers[line.substring(0, i).trim().lowercase()] = line.substring(i + 1).trim()
             }
@@ -186,9 +214,14 @@ class CompanionServer(
                 }
             }
             "/key/remove" -> {
-                val key = form["key"].orEmpty()
-                settings.removeApiKey(key)
-                "API key removed."
+                val kid = form["kid"].orEmpty()
+                val key = settings.state.value.apiKeys.firstOrNull { CompanionPage.keyId(it) == kid }
+                if (key != null) {
+                    settings.removeApiKey(key)
+                    "API key removed."
+                } else {
+                    "That key was already removed."
+                }
             }
             "/channel/add" -> {
                 val q = form["q"].orEmpty()
